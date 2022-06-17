@@ -4,10 +4,13 @@ import os.path as osp
 import mmcv
 import numpy as np
 import pycocotools.mask as maskUtils
+import cv2
+import warnings
 
 from mmdet.core import BitmapMasks, PolygonMasks
 from ..builder import PIPELINES
 
+from .image_io_3DCE import load_multislice_gray_png_3DCE
 try:
     from panopticapi.utils import rgb2id
 except ImportError:
@@ -40,6 +43,7 @@ class LoadImageFromFile:
                  channel_order='bgr',
                  file_client_args=dict(backend='disk')):
         self.to_float32 = to_float32
+
         self.color_type = color_type
         self.channel_order = channel_order
         self.file_client_args = file_client_args.copy()
@@ -67,6 +71,7 @@ class LoadImageFromFile:
         img_bytes = self.file_client.get(filename)
         img = mmcv.imfrombytes(
             img_bytes, flag=self.color_type, channel_order=self.channel_order)
+
         if self.to_float32:
             img = img.astype(np.float32)
 
@@ -85,6 +90,52 @@ class LoadImageFromFile:
                     f"channel_order='{self.channel_order}', "
                     f'file_client_args={self.file_client_args})')
         return repr_str
+
+@PIPELINES.register_module()
+class LoadImageFromFile_3DCE(object):
+    ''' Added to support multi-slice input by deepwise.
+        Args:
+            window: tuple (min_window, max_window), used for 16-bit-image windowing.
+                set None if using 8-bit images which are already windowed.
+    '''
+    def __init__(self, to_float32=False, lesion_input=True, num_slice=9,
+            window=None ,zflip=False, target_intv=None):
+        self.to_float32 = to_float32
+        self.lesion_input = lesion_input
+        self.zflip = zflip
+        self.window = window
+        self.num_slice = num_slice
+        self.target_intv = target_intv
+
+    def __call__(self, results):
+        if results['img_prefix'] is None:
+            filename = results['img_info']['filename']
+        else:
+            filename = osp.join(results['img_prefix'],
+                            results['img_info']['filename'])
+        if not 'slice_intv' in results['img_info'].keys():
+            print('Warning: no slice_intv found, set to 1.0 as default')
+            slice_intv = 1.0
+        else:
+            slice_intv = results['img_info']['slice_intv']
+        if not self.lesion_input:
+            img = mmcv.imread(filename)
+        else:
+            img = load_multislice_gray_png_3DCE(filename, self.num_slice, slice_intv,
+                    self.window, self.zflip, self.target_intv)
+        if self.to_float32:
+            img = img.astype(np.float32)
+        results['filename'] = filename
+        results['ori_filename'] = results['img_info']['filename']
+        results['img'] = img
+        results['img_shape'] = img.shape
+        results['ori_shape'] = img.shape
+        results['img_fields'] = ['img']
+        return results
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(to_float32={})'.format(
+            self.to_float32)
 
 
 @PIPELINES.register_module()
@@ -231,6 +282,7 @@ class LoadAnnotations:
                  with_mask=False,
                  with_seg=False,
                  poly2mask=True,
+                 skip_img_without_anno=True,
                  denorm_bbox=False,
                  file_client_args=dict(backend='disk')):
         self.with_bbox = with_bbox
@@ -238,6 +290,7 @@ class LoadAnnotations:
         self.with_mask = with_mask
         self.with_seg = with_seg
         self.poly2mask = poly2mask
+        self.skip_img_without_anno = skip_img_without_anno
         self.denorm_bbox = denorm_bbox
         self.file_client_args = file_client_args.copy()
         self.file_client = None
@@ -254,6 +307,16 @@ class LoadAnnotations:
 
         ann_info = results['ann_info']
         results['gt_bboxes'] = ann_info['bboxes'].copy()
+        if len(results['gt_bboxes']) == 0 and self.skip_img_without_anno:
+            if results['img_prefix'] is not None:
+                file_path = osp.join(results['img_prefix'],
+                                     results['img_info']['filename'])
+            else:
+                file_path = results['img_info']['filename']
+            warnings.warn(
+                'Skip the image "{}" that has no valid gt bbox'.format(
+                    file_path))
+            return None
 
         if self.denorm_bbox:
             bbox_num = results['gt_bboxes'].shape[0]
@@ -346,12 +409,29 @@ class LoadAnnotations:
         h, w = results['img_info']['height'], results['img_info']['width']
         gt_masks = results['ann_info']['masks']
         if self.poly2mask:
-            gt_masks = BitmapMasks(
-                [self._poly2mask(mask, h, w) for mask in gt_masks], h, w)
+            # Fix: _poly2mask report bug for gt_masks == [[]].
+            if gt_masks == [[[]]]:
+                gt_masks = BitmapMasks([np.zeros((h, w), dtype='uint8')], h,w)
+            else:
+                gt_masks = BitmapMasks(
+                    [self._poly2mask(mask, h, w) for mask in gt_masks], h, w)
+
         else:
             gt_masks = PolygonMasks(
                 [self.process_polygons(polygons) for polygons in gt_masks], h,
                 w)
+        """another impl
+        if gt_masks == [] or gt_masks == [[[]]]:
+            gt_masks = [np.zeros((h, w), dtype='uint8')]
+        else:
+            if self.poly2mask:
+                gt_masks = BitmapMasks(
+                    [self._poly2mask(mask, h, w) for mask in gt_masks], h, w)
+            else:
+                gt_masks = PolygonMasks(
+                    [self.process_polygons(polygons) for polygons in gt_masks], h,
+                    w)
+        """
         results['gt_masks'] = gt_masks
         results['mask_fields'].append('gt_masks')
         return results
@@ -566,11 +646,9 @@ class LoadProposals:
         return self.__class__.__name__ + \
                f'(num_max_proposals={self.num_max_proposals})'
 
-
 @PIPELINES.register_module()
 class FilterAnnotations:
     """Filter invalid annotations.
-
     Args:
         min_gt_bbox_wh (tuple[float]): Minimum width and height of ground truth
             boxes. Default: (1., 1.)

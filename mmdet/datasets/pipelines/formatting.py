@@ -75,9 +75,9 @@ class ImageToTensor:
         keys (Sequence[str]): Key of images to be converted to Tensor.
     """
 
-    def __init__(self, keys):
+    def __init__(self, keys, is_3d_input = False):
         self.keys = keys
-
+        self.is_3d_input = is_3d_input
     def __call__(self, results):
         """Call function to convert image in results to :obj:`torch.Tensor` and
         transpose the channel order.
@@ -90,10 +90,11 @@ class ImageToTensor:
                 to :obj:`torch.Tensor` and transposed to (C, H, W) order.
         """
         for key in self.keys:
-            img = results[key]
-            if len(img.shape) < 3:
-                img = np.expand_dims(img, -1)
-            results[key] = (to_tensor(img.transpose(2, 0, 1))).contiguous()
+            # TODO: Check
+            results[key] = to_tensor(results[key].transpose(2, 0, 1))
+            if self.is_3d_input:
+                if key == 'img':
+                    results[key] = results[key][np.newaxis,:,:,:]
         return results
 
     def __repr__(self):
@@ -199,7 +200,9 @@ class DefaultFormatBundle:
 
     def __init__(self,
                  img_to_float=True,
+                 is_3d_input = False,
                  pad_val=dict(img=0, masks=0, seg=255)):
+        self.is_3d_input = is_3d_input
         self.img_to_float = img_to_float
         self.pad_val = pad_val
 
@@ -227,6 +230,9 @@ class DefaultFormatBundle:
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
             img = np.ascontiguousarray(img.transpose(2, 0, 1))
+            if self.is_3d_input:
+                img = img[np.newaxis,:,:,:]
+            #results['img'] = DC(to_tensor(img), stack=True) # old version
             results['img'] = DC(
                 to_tensor(img), padding_value=self.pad_val['img'], stack=True)
         for key in ['proposals', 'gt_bboxes', 'gt_bboxes_ignore', 'gt_labels']:

@@ -43,6 +43,7 @@ from .vfnet import VFNet
 from .yolact import YOLACT
 from .yolo import YOLOV3
 from .yolof import YOLOF
+from .CE3D import CE3D_Detector
 from .yolox import YOLOX
 
 __all__ = [
@@ -54,5 +55,6 @@ __all__ = [
     'VFNet', 'DETR', 'TridentFasterRCNN', 'SparseRCNN', 'SCNet', 'SOLO',
     'SOLOv2', 'DeformableDETR', 'AutoAssign', 'YOLOF', 'CenterNet', 'YOLOX',
     'TwoStagePanopticSegmentor', 'PanopticFPN', 'QueryInst', 'LAD', 'TOOD',
+    'CE3D_Detector',
     'MaskFormer', 'DDOD', 'Mask2Former'
 ]

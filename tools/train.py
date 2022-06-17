@@ -87,6 +87,10 @@ def parse_args():
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument(
+        '--autoscale-lr',
+        action='store_true',
+        help='automatically scale lr with the number of gpus and images')
+    parser.add_argument(
         '--auto-scale-lr',
         action='store_true',
         help='enable automatically scaling LR.')
@@ -118,6 +122,23 @@ def main():
 
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
+
+    # Noted by lzh : official mmdetection code change to use 'auto_sclae_lr'.
+    # TODO: We need to check whether it's as same as 'autoscale_lr'
+    if args.autoscale_lr:
+        Warnings.warn('autoscale_lr will be deprecated, please see tools/train.py and use auto_scale_lr.'
+                      'Here the auto_scale_lr is set True instead.')
+        args.auto_scale_lr = True
+    '''
+    # these codes are the older vision of autoscale_lr, which is deprecated.
+    origin_lr = cfg.optimizer['lr']
+    if args.autoscale_lr:
+        # apply the linear scaling rule (https://arxiv.org/abs/1706.02677)
+        # Added by deepwise to deal with variant per gpu img
+        cfg.optimizer['lr'] = cfg.optimizer['lr'] * args.gpus / 8 * (cfg.data.samples_per_gpu / 2)
+        print('Learning rage changed with gpus={} and bs_per_gpu={}: {}--->{}'\
+            .format(args.gpus, cfg.data.samples_per_gpu, origin_lr, cfg.optimizer['lr']))
+    '''
 
     if args.auto_scale_lr:
         if 'auto_scale_lr' in cfg and \

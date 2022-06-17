@@ -3,3 +3,7 @@ numpy
 pycocotools
 six
 terminaltables
+addict
+timm
+einops
+SimpleITK

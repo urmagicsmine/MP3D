@@ -688,10 +688,12 @@ class Normalize:
             default is true.
     """
 
-    def __init__(self, mean, std, to_rgb=True):
+    def __init__(self, mean, std, to_rgb=True, is_3d_input=False, num_slice=3):
         self.mean = np.array(mean, dtype=np.float32)
         self.std = np.array(std, dtype=np.float32)
         self.to_rgb = to_rgb
+        self.is_3d_input = is_3d_input
+        self.num_slice = num_slice
 
     def __call__(self, results):
         """Call function to normalize images.
@@ -704,8 +706,16 @@ class Normalize:
                 result dict.
         """
         for key in results.get('img_fields', ['img']):
-            results[key] = mmcv.imnormalize(results[key], self.mean, self.std,
-                                            self.to_rgb)
+            if self.is_3d_input:
+                mean_3d = np.array([self.mean[0] for i in range(self.num_slice)], dtype=np.float32)
+                std_3d = np.array([self.std[0] for i in range(self.num_slice)], dtype=np.float32)
+                self.mean, self.std = mean_3d, std_3d
+                self.to_rgb = False
+                results[key] = mmcv.imnormalize(results[key], mean_3d, std_3d, self.to_rgb)
+            else:
+                results[key] = mmcv.imnormalize(results[key], self.mean, self.std,
+                                                self.to_rgb)
+
         results['img_norm_cfg'] = dict(
             mean=self.mean, std=self.std, to_rgb=self.to_rgb)
         return results
@@ -714,7 +724,6 @@ class Normalize:
         repr_str = self.__class__.__name__
         repr_str += f'(mean={self.mean}, std={self.std}, to_rgb={self.to_rgb})'
         return repr_str
-
 
 @PIPELINES.register_module()
 class RandomCrop:
