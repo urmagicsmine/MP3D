@@ -175,7 +175,7 @@ class LesionDataset(CocoDataset):
         #===========
         # Eval FROC
         #===========
-        avgFP = [0.5, 1, 2, 3, 4, 8]
+        avgFP = [0.5, 1, 2, 4]
         f_iou_th = 0.5
         all_boxes = []
         for cls in range(len(results[0])):

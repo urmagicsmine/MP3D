@@ -1,20 +1,29 @@
 _base_ = [
     '../_base_/models/faster_rcnn_r50_fpn.py',
-    '../_base_/datasets/deeplesion_detection.py',
+    '../_base_/datasets/deeplesion_detection_p3d_sms.py',
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
+fp16 = dict(loss_scale=dict(init_scale=512))
+pretrained="/lung_general_data/pretrained_model/mp3d/mp3d63-d720bda1.pth"
 model = dict(
     type='FasterRCNN',
     backbone=dict(
-        type='ResNet',
-        depth=50,
+        type='P3D',
+        depth=63,
+        ST_struc=('A','B','C'),
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         frozen_stages=-1,
-        norm_cfg=dict(type='BN', requires_grad=True),
-        norm_eval=True,
         style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
+        conv_cfg = dict(type='Conv3d'),
+        norm_cfg = dict(type='GN', num_groups=32, requires_grad=True),
+        init_cfg=dict(type='Pretrained', checkpoint=pretrained)),
+    neck=dict(
+        type='FPN',
+        #in_channels=[64, 128, 256, 512],
+        in_channels=[256, 512, 1024, 2048],
+        out_channels=256,
+        num_outs=5),
     rpn_head=dict(
         type='RPNHead',
         in_channels=256,

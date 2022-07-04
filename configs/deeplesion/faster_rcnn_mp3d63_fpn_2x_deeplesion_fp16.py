@@ -3,6 +3,7 @@ _base_ = [
     '../_base_/datasets/deeplesion_detection_p3d.py',
     '../_base_/schedules/schedule_1x.py', '../_base_/default_runtime.py'
 ]
+fp16 = dict(loss_scale=dict(init_scale=512))
 pretrained="/mnt/LungGeneralDataNFS/pretrained_model/mp3d/mp3d63-d720bda1.pth"
 model = dict(
     type='FasterRCNN',
