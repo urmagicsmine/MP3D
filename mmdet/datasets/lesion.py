@@ -372,7 +372,7 @@ class LesionDataset(CocoDataset):
             for recall,fp, score in zip(result,valid_avgFP, score_thresh):
                 print('Recall@%.2f=%.2f%%, score_threshold=%.4f' % (fp, recall*100, score))
             #TODO: when num of valid_avgFP < 6,is FROC correct?
-            print('Mean FROC is %.2f'% np.mean(np.array(result[:6])*100))
+            print('Mean FROC is %.2f'% np.mean(np.array(result[:len(avgFP)])*100))
         print('='*47)
         return recall_per_class
 
