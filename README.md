@@ -29,6 +29,13 @@ We provide models pre-trained on COCO dataset which can be used for different 3D
 
 The pre-trained MP3D63 model can be downloaded from [BaiduYun](https://pan.baidu.com/s/1zMyw2tcPY1q0SPRpZKSKbQ)(verification code: bbrc). 
 
+## Training
+To train MP3D & P3d model on deeplesion dataset, run:
+
+```
+bash tools/dist_train.sh configs/deeplesion/mp3d_groupconv.py 8
+bash tools/dist_train.sh configs/deeplesion/p3d.py 8
+```
 
 ## Contact
 If you have questions or suggestions, please open an issue here.
