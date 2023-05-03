@@ -27,7 +27,7 @@ data
 ## Pre-trained Model
 We provide models pre-trained on COCO dataset which can be used for different 3D medical image detection.
 
-The pre-trained MP3D63 model can be downloaded from [BaiduYun](https://pan.baidu.com/s/1zMyw2tcPY1q0SPRpZKSKbQ)(verification code: bbrc). 
+The pre-trained MP3D63 model can be downloaded from [BaiduYun](https://pan.baidu.com/s/1zMyw2tcPY1q0SPRpZKSKbQ)(verification code: bbrc) or [GoogleDrive](https://drive.google.com/file/d/1jKdJQ83vZrvOT4N_iZeRvhDuyKWiboqi/view?usp=sharing). 
 
 ## Training
 To train MP3D & P3d model on deeplesion dataset, run:
